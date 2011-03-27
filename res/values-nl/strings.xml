@@ -448,6 +448,8 @@
     <string name="title_change_digits_color">Verander cijferkleur</string>
     <string name="title_digits_color_pressed">Cijferkleur (ingedrukt)</string>
     <string name="title_digits_color_focused">Cijferkleur (gefocust)</string>
+    <string name="title_format_phone_number">Nummerindeling</string>
+    <string name="summary_format_phone_number">Schakel nummerindeling in telefoonkiezer in</string>
     <string name="title_digits_color_unselected">Cijfer kleur (niet geselecteerd)</string>
     <string name="title_choose_color">Kies een kleur</string>
     <string name="instructions_choose_color">Raak het midden van de kleur aan om te bevestigen.\nDruk op terug om te annuleren.</string>
