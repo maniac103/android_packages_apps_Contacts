@@ -158,7 +158,7 @@ public class DatePickerDialog extends AlertDialog implements OnClickListener,
         mTitleDateNoYearFormat = (SimpleDateFormat)
             java.text.DateFormat.getDateInstance(java.text.DateFormat.LONG);
         mTitleDateNoYearFormat.applyPattern(mTitleDateNoYearFormat
-                .toPattern().replaceAll("[^\\.\\p{Alpha}]*y+[^\\p{Alpha}]*", ""));
+                .toPattern().replaceAll("M[^M]*$", "M"));
 
         mCalendar = Calendar.getInstance();
         updateTitle(mInitialYear, mInitialMonth, mInitialDay);

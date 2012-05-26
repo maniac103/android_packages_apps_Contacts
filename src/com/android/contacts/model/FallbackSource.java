@@ -744,7 +744,7 @@ public class FallbackSource extends ContactsSource {
             if (result != null) {
                 SimpleDateFormat format = (SimpleDateFormat) DateFormat.getLongDateFormat(context);
                 if (!result.hasYear) {
-                    EventDateConverter.removeYearFromFormat(format);
+                    format.applyPattern(format.toPattern().replaceAll("M[^M]*$", "M"));
                 }
                 return format.format(result.date);
             }
@@ -833,13 +833,6 @@ public class FallbackSource extends ContactsSource {
             SimpleDateFormat format = withYear ? sDateFormat : sDateFormatNoYear;
             return format.format(date);
         }
-
-        public static void removeYearFromFormat(java.text.DateFormat format) {
-            if (format instanceof SimpleDateFormat) {
-                SimpleDateFormat sdf = (SimpleDateFormat) format;
-                sdf.applyPattern(sdf.toPattern().replaceAll("[^\\.\\p{Alpha}]*y+[^\\p{Alpha}]*", ""));
-            }
-        }
     }
 
     protected static class EventDateEditField extends EditField {
@@ -848,17 +841,18 @@ public class FallbackSource extends ContactsSource {
         private boolean mYearOptional;
         private Date mDate;
         private boolean mHasYear;
-        private java.text.DateFormat mFormat;
-        private java.text.DateFormat mFormatNoYear;
+        private SimpleDateFormat mFormat;
+        private SimpleDateFormat mFormatNoYear;
 
         public EventDateEditField(final Context context, boolean allowClear, boolean yearOptional) {
             super(Event.START_DATE, R.string.label_date, FLAGS_DATE);
 
-            mFormat = DateFormat.getDateFormat(context);
+            mFormat = (SimpleDateFormat) DateFormat.getDateFormat(context);
             mFormat.setTimeZone(EventDateConverter.sUtcTimeZone);
 
-            mFormatNoYear = DateFormat.getDateFormat(context);
-            EventDateConverter.removeYearFromFormat(mFormatNoYear);
+            mFormatNoYear = (SimpleDateFormat) DateFormat.getDateFormat(context);
+            mFormatNoYear.applyPattern(mFormatNoYear
+                    .toPattern().replaceAll("[^\\.\\p{Alpha}]*y+[^\\p{Alpha}]*", ""));
             mFormatNoYear.setTimeZone(EventDateConverter.sUtcTimeZone);
 
             mAllowClear = allowClear;
