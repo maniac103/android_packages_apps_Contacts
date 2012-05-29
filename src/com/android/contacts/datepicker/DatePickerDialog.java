@@ -25,7 +25,6 @@ import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.os.Bundle;
 import android.text.TextUtils.TruncateAt;
-import android.text.format.DateFormat;
 import android.text.TextUtils.TruncateAt;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -34,6 +33,7 @@ import android.widget.TextView;
 import com.android.contacts.R;
 import com.android.contacts.datepicker.DatePicker.OnDateChangedListener;
 
+import java.text.DateFormat;
 import java.text.DateFormatSymbols;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -55,8 +55,8 @@ public class DatePickerDialog extends AlertDialog implements OnClickListener,
     private final DatePicker mDatePicker;
     private final OnDateSetListener mCallBack;
     private final Calendar mCalendar;
-    private final SimpleDateFormat mTitleDateFormat;
-    private final SimpleDateFormat mTitleDateNoYearFormat;
+    private final DateFormat mTitleDateFormat;
+    private final DateFormat mTitleDateNoYearFormat;
     private final String[] mWeekDays;
 
     private int mInitialYear;
@@ -153,12 +153,9 @@ public class DatePickerDialog extends AlertDialog implements OnClickListener,
         DateFormatSymbols symbols = new DateFormatSymbols();
         mWeekDays = symbols.getShortWeekdays();
 
-        mTitleDateFormat = (SimpleDateFormat)
-            java.text.DateFormat.getDateInstance(java.text.DateFormat.FULL);
-        mTitleDateNoYearFormat = (SimpleDateFormat)
-            java.text.DateFormat.getDateInstance(java.text.DateFormat.LONG);
-        mTitleDateNoYearFormat.applyPattern(mTitleDateNoYearFormat
-                .toPattern().replaceAll("M[^M]*$", "M"));
+        mTitleDateFormat = DateFormat.getDateInstance(java.text.DateFormat.FULL);
+        mTitleDateNoYearFormat = new SimpleDateFormat(
+                context.getResources().getString(R.string.date_format_full_no_year));
 
         mCalendar = Calendar.getInstance();
         updateTitle(mInitialYear, mInitialMonth, mInitialDay);
@@ -213,7 +210,7 @@ public class DatePickerDialog extends AlertDialog implements OnClickListener,
         mCalendar.set(Calendar.MONTH, month);
         mCalendar.set(Calendar.DAY_OF_MONTH, day);
 
-        SimpleDateFormat format = (year != 0) ? mTitleDateFormat : mTitleDateNoYearFormat;
+        DateFormat format = (year != 0) ? mTitleDateFormat : mTitleDateNoYearFormat;
         setTitle(format.format(mCalendar.getTime()));
     }
 
