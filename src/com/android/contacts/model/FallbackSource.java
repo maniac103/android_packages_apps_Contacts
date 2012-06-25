@@ -743,18 +743,24 @@ public class FallbackSource extends ContactsSource {
 
         private CharSequence parseDate(Context context, CharSequence value) {
             EventDateConverter.ParseResult result = EventDateConverter.parseDateFromDb(value);
-            if (result != null) {
-                if (!result.hasYear) {
-                    if (mNoYearFormat == null) {
-                        mNoYearFormat = new SimpleDateFormat(
-                                context.getResources().getString(R.string.date_format_full_no_year));
-                    }
-                    return mNoYearFormat.format(result.date);
-                } else {
-                    return DateFormat.getLongDateFormat(context).format(result.date);
-                }
+            if (result == null) {
+                return value;
             }
-            return value;
+
+            java.text.DateFormat format;
+
+            if (!result.hasYear) {
+                if (mNoYearFormat == null) {
+                    mNoYearFormat = new SimpleDateFormat(
+                            context.getResources().getString(R.string.date_format_full_no_year));
+                }
+                format = mNoYearFormat;
+            } else {
+                format = DateFormat.getLongDateFormat(context);
+            }
+            format.setTimeZone(EventDateConverter.sUtcTimeZone);
+
+            return format.format(result.date);
         }
 
         public CharSequence inflateUsing(Context context, Cursor cursor) {
