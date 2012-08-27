@@ -36,6 +36,7 @@ import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.Contacts;
 import android.telephony.PhoneNumberUtils;
 import android.text.Spannable;
+import android.text.TextUtils;
 import android.text.style.ForegroundColorSpan;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -87,9 +88,6 @@ class T9Search {
 
     // Local variables
     private Context mContext;
-    private int mSortMode;
-    private ArrayList<ContactItem> mNameResults = new ArrayList<ContactItem>();
-    private ArrayList<ContactItem> mNumberResults = new ArrayList<ContactItem>();
     private Set<ContactItem> mAllResults = new LinkedHashSet<ContactItem>();
     private ArrayList<ContactItem> mContacts = new ArrayList<ContactItem>();
     private String mPrevInput;
@@ -198,12 +196,11 @@ class T9Search {
     }
 
     public T9SearchResult search(String number) {
-        mNameResults.clear();
-        mNumberResults.clear();
         number = removeNonDigits(number);
-        int pos = 0;
-        mSortMode = Integer.parseInt(
-                PreferenceManager.getDefaultSharedPreferences(mContext).getString("t9_sort", "1"));
+
+        int pos;
+        final ArrayList<ContactItem> numberResults = new ArrayList<ContactItem>();
+        final ArrayList<ContactItem> nameResults = new ArrayList<ContactItem>();
         boolean newQuery = mPrevInput == null || number.length() <= mPrevInput.length();
 
         // Go through each contact
@@ -213,38 +210,48 @@ class T9Search {
             pos = item.normalNumber.indexOf(number);
             if (pos != -1) {
                 item.numberMatchId = pos;
-                mNumberResults.add(item);
+                numberResults.add(item);
             }
             pos = item.normalName.indexOf(number);
             if (pos != -1) {
-                int last_space = item.normalName.lastIndexOf("0", pos);
-                if (last_space == -1) {
-                    last_space = 0;
+                int lastSpace = item.normalName.lastIndexOf("0", pos);
+                if (lastSpace == -1) {
+                    lastSpace = 0;
                 }
-                item.nameMatchId = pos - last_space;
-                mNameResults.add(item);
+                item.nameMatchId = pos - lastSpace;
+                nameResults.add(item);
             }
         }
+
         mAllResults.clear();
         mPrevInput = number;
-        Collections.sort(mNumberResults, new NumberComparator());
-        Collections.sort(mNameResults, new NameComparator());
-        if (mNameResults.size() > 0 || mNumberResults.size() > 0) {
-            switch (mSortMode) {
-            case NAME_FIRST:
-                mAllResults.addAll(mNameResults);
-                mAllResults.addAll(mNumberResults);
-                break;
-            case NUMBER_FIRST:
-                mAllResults.addAll(mNumberResults);
-                mAllResults.addAll(mNameResults);
-            }
-            return new T9SearchResult(new ArrayList<ContactItem>(mAllResults));
+
+        Collections.sort(numberResults, sNumberComparator);
+        Collections.sort(nameResults, sNameComparator);
+
+        if (nameResults.isEmpty() && numberResults.isEmpty()) {
+            return null;
         }
-        return null;
+
+        if (preferSortByName()) {
+            mAllResults.addAll(nameResults);
+            mAllResults.addAll(numberResults);
+        } else {
+            mAllResults.addAll(numberResults);
+            mAllResults.addAll(nameResults);
+        }
+        return new T9SearchResult(new ArrayList<ContactItem>(mAllResults));
     }
 
-    public static class NameComparator implements Comparator<ContactItem> {
+    private boolean preferSortByName() {
+        String mode = PreferenceManager.getDefaultSharedPreferences(mContext).getString("t9_sort", null);
+        if (TextUtils.equals(mode, Integer.toString(NUMBER_FIRST))) {
+            return false;
+        }
+        return true;
+    }
+
+    private static final Comparator<ContactItem> sNameComparator = new Comparator<ContactItem>() {
         @Override
         public int compare(ContactItem lhs, ContactItem rhs) {
             int ret = compareInt(lhs.nameMatchId, rhs.nameMatchId);
@@ -252,9 +259,9 @@ class T9Search {
             if (ret == 0) ret = compareBool(rhs.isSuperPrimary, lhs.isSuperPrimary);
             return ret;
         }
-    }
+    };
 
-    public static class NumberComparator implements Comparator<ContactItem> {
+    private static final Comparator<ContactItem> sNumberComparator = new Comparator<ContactItem>() {
         @Override
         public int compare(ContactItem lhs, ContactItem rhs) {
             int ret = compareInt(lhs.numberMatchId, rhs.numberMatchId);
@@ -262,13 +269,13 @@ class T9Search {
             if (ret == 0) ret = compareBool(rhs.isSuperPrimary, lhs.isSuperPrimary);
             return ret;
         }
-    }
+    };
 
-    public static int compareInt (int lhs, int rhs) {
+    private static int compareInt (int lhs, int rhs) {
         return lhs < rhs ? -1 : (lhs == rhs ? 0 : 1);
     }
 
-    public static int compareBool (boolean lhs, boolean rhs) {
+    private static int compareBool (boolean lhs, boolean rhs) {
         return lhs == rhs ? 0 : lhs ? 1 : -1;
     }
 
@@ -305,7 +312,7 @@ class T9Search {
         return sb.toString();
     }
 
-    public static String removeNonDigits(final String number) {
+    private static String removeNonDigits(final String number) {
         int len = number.length();
         StringBuilder sb = new StringBuilder(len);
         for (int i = 0; i < len; i++) {
