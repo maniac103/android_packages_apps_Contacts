@@ -622,7 +622,6 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
         final int length = mDigits.length();
         if (length > 0) {
             T9SearchResult result = mT9Search.search(mDigits.getText().toString());
-	    Log.d(TAG, "search yielded " + (result != null ? result.getNumResults() : -1) + " items");
             if (mT9AdapterTop == null) {
                 mT9AdapterTop = mT9Search.new T9Adapter(this, 0, new ArrayList<ContactItem>(),getLayoutInflater());
                 mT9AdapterTop.setNotifyOnChange(true);
