@@ -31,6 +31,7 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.preference.PreferenceManager;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.Contacts;
@@ -49,6 +50,9 @@ import android.widget.TextView;
  * @author shade, Danesh, pawitp
  */
 class T9Search {
+    public interface LoadFinishCallback {
+        public void onLoadFinished();
+    }
 
     // List sort modes
     private static final int NAME_FIRST = 1;
@@ -88,54 +92,80 @@ class T9Search {
 
     // Local variables
     private Context mContext;
+    private LoadTask mLoadTask;
+    private boolean mLoaded;
+    private LoadFinishCallback mLoadCallback;
     private Set<ContactItem> mAllResults = new LinkedHashSet<ContactItem>();
     private ArrayList<ContactItem> mContacts = new ArrayList<ContactItem>();
     private String mPrevInput;
-    private static String sT9Chars;
-    private static String sT9Digits;
+    private String mT9Chars;
+    private String mT9Digits;
 
     public T9Search(Context context) {
         mContext = context;
-        getAll();
     }
 
-    private void getAll() {
-        initT9Map();
+    public void load(LoadFinishCallback cb) {
+        mLoadCallback = cb;
+        mPrevInput = null;
+        mAllResults.clear();
+        mContacts.clear();
+        if (mLoadTask == null || mLoadTask.getStatus() == AsyncTask.Status.FINISHED) {
+            mLoaded = false;
+            mLoadTask = new LoadTask();
+            mLoadTask.execute();
+        }
+    }
 
-        Cursor contact = mContext.getContentResolver().query(
-                Contacts.CONTENT_URI, CONTACT_PROJECTION, CONTACT_QUERY,
-                null, CONTACT_SORT);
-        Cursor phone = mContext.getContentResolver().query(
-                Phone.CONTENT_URI, PHONE_PROJECTION, PHONE_ID_SELECTION,
-                PHONE_ID_SELECTION_ARGS, PHONE_SORT);
+    private class LoadTask extends AsyncTask<Void, Void, Void> {
+        @Override
+        protected Void doInBackground(Void... args) {
+            initT9Map();
 
-        phone.moveToFirst();
+            Cursor contact = mContext.getContentResolver().query(
+                    Contacts.CONTENT_URI, CONTACT_PROJECTION, CONTACT_QUERY,
+                    null, CONTACT_SORT);
+            Cursor phone = mContext.getContentResolver().query(
+                    Phone.CONTENT_URI, PHONE_PROJECTION, PHONE_ID_SELECTION,
+                    PHONE_ID_SELECTION_ARGS, PHONE_SORT);
 
-        while (contact.moveToNext()) {
-            long contactId = contact.getLong(CONTACT_COLUMN_ID);
-            String contactName = contact.getString(CONTACT_COLUMN_NAME);
-            int contactContactedCount = contact.getInt(CONTACT_COLUMN_CONTACTED);
+            phone.moveToFirst();
 
-            while (!phone.isAfterLast() && phone.getLong(PHONE_COLUMN_CONTACT) == contactId) {
-                String num = phone.getString(PHONE_COLUMN_NUMBER);
-                ContactItem contactInfo = new BitmapContactItem();
+            while (contact.moveToNext()) {
+                long contactId = contact.getLong(CONTACT_COLUMN_ID);
+                String contactName = contact.getString(CONTACT_COLUMN_NAME);
+                int contactContactedCount = contact.getInt(CONTACT_COLUMN_CONTACTED);
 
-                contactInfo.id = contactId;
-                contactInfo.name = contactName;
-                contactInfo.number = PhoneNumberUtils.formatNumber(num);
-                contactInfo.normalNumber = removeNonDigits(num);
-                contactInfo.normalName = nameToNumber(contactName);
-                contactInfo.timesContacted = contactContactedCount;
-                contactInfo.isSuperPrimary = phone.getInt(PHONE_COLUMN_PRIMARY) > 0;
-                contactInfo.groupType = Phone.getTypeLabel(mContext.getResources(),
-                        phone.getInt(PHONE_COLUMN_TYPE), phone.getString(PHONE_COLUMN_LABEL));
-                mContacts.add(contactInfo);
-                phone.moveToNext();
+                while (!phone.isAfterLast() && phone.getLong(PHONE_COLUMN_CONTACT) == contactId) {
+                    String num = phone.getString(PHONE_COLUMN_NUMBER);
+                    ContactItem contactInfo = new BitmapContactItem();
+
+                    contactInfo.id = contactId;
+                    contactInfo.name = contactName;
+                    contactInfo.number = PhoneNumberUtils.formatNumber(num);
+                    contactInfo.normalNumber = removeNonDigits(num);
+                    contactInfo.normalName = nameToNumber(contactName);
+                    contactInfo.timesContacted = contactContactedCount;
+                    contactInfo.isSuperPrimary = phone.getInt(PHONE_COLUMN_PRIMARY) > 0;
+                    contactInfo.groupType = Phone.getTypeLabel(mContext.getResources(),
+                            phone.getInt(PHONE_COLUMN_TYPE), phone.getString(PHONE_COLUMN_LABEL));
+                    mContacts.add(contactInfo);
+                    phone.moveToNext();
+                }
             }
+
+            contact.close();
+            phone.close();
+            return null;
         }
 
-        contact.close();
-        phone.close();
+        @Override
+        protected void onPostExecute(Void result) {
+            mLoaded = true;
+            if (mLoadCallback != null) {
+                mLoadCallback.onLoadFinished();
+            }
+        }
     }
 
     public static class T9SearchResult {
@@ -196,6 +226,10 @@ class T9Search {
     }
 
     public T9SearchResult search(String number) {
+        if (!mLoaded) {
+            return null;
+        }
+
         number = removeNonDigits(number);
 
         int pos;
@@ -244,7 +278,8 @@ class T9Search {
     }
 
     private boolean preferSortByName() {
-        String mode = PreferenceManager.getDefaultSharedPreferences(mContext).getString("t9_sort", null);
+        String mode = PreferenceManager.getDefaultSharedPreferences(mContext).getString(
+                "t9_sort", mContext.getString(R.string.t9_default_sort));
         if (TextUtils.equals(mode, Integer.toString(NUMBER_FIRST))) {
             return false;
         }
@@ -280,39 +315,33 @@ class T9Search {
     }
 
     private void initT9Map() {
-        synchronized (this.getClass()) {
-            if (sT9Chars != null) {
-                return;
+        StringBuilder bT9Chars = new StringBuilder();
+        StringBuilder bT9Digits = new StringBuilder();
+        for (String item : mContext.getResources().getStringArray(R.array.t9_map)) {
+            bT9Chars.append(item);
+            for (int i = 0; i < item.length(); i++) {
+                bT9Digits.append(item.charAt(0));
             }
-
-            StringBuilder bT9Chars = new StringBuilder();
-            StringBuilder bT9Digits = new StringBuilder();
-            for (String item: mContext.getResources().getStringArray(R.array.t9_map)) {
-                bT9Chars.append(item);
-                for (int i = 0; i < item.length(); i++) {
-                    bT9Digits.append(item.charAt(0));
-                }
-            }
-
-            sT9Chars = bT9Chars.toString();
-            sT9Digits = bT9Digits.toString();
         }
+
+        mT9Chars = bT9Chars.toString();
+        mT9Digits = bT9Digits.toString();
     }
 
-    private static String nameToNumber(final String name) {
+    private String nameToNumber(final String name) {
         int len = name.length();
         StringBuilder sb = new StringBuilder(len);
         for (int i = 0; i < len; i++) {
-            int pos = sT9Chars.indexOf(Character.toLowerCase(name.charAt(i)));
+            int pos = mT9Chars.indexOf(Character.toLowerCase(name.charAt(i)));
             if (pos == -1) {
                 pos = 0;
             }
-            sb.append(sT9Digits.charAt(pos));
+            sb.append(mT9Digits.charAt(pos));
         }
         return sb.toString();
     }
 
-    private static String removeNonDigits(final String number) {
+    private String removeNonDigits(final String number) {
         int len = number.length();
         StringBuilder sb = new StringBuilder(len);
         for (int i = 0; i < len; i++) {
@@ -327,6 +356,7 @@ class T9Search {
     protected class T9Adapter extends ArrayAdapter<ContactItem> {
         private ArrayList<ContactItem> mItems;
         private LayoutInflater mMenuInflate;
+        private View mLoadingView;
 
         public T9Adapter(Context context, int textViewResourceId,
                 ArrayList<ContactItem> items, LayoutInflater menuInflate) {
@@ -339,7 +369,14 @@ class T9Search {
         public View getView(int position, View convertView, ViewGroup parent) {
             ViewHolder holder;
 
-            if (convertView == null) {
+            if (!mLoaded) {
+                if (mLoadingView == null) {
+                    mLoadingView = mMenuInflate.inflate(R.layout.row_loading, null);
+                }
+                return mLoadingView;
+            }
+
+            if (convertView == null || convertView.getTag() == null) {
                 convertView = mMenuInflate.inflate(R.layout.row, null);
                 holder = new ViewHolder();
                 holder.name = (TextView) convertView.findViewById(R.id.rowName);
