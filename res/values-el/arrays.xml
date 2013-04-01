@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (C) 2007 The Android Open Source Project
-     Copyright (C) 2013 The CyanogenMod Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -16,23 +15,25 @@
 -->
 
 <resources>
+
     <string-array name="entries_vm_button">
-        <item>Ajouter aux contacts</item>
+        <item>Προσθήκη στις επαφές</item>
         <item>SMS/MMS</item>
-        <item>Messagerie vocale</item>
+        <item>Ηχητικό μήνυμα</item>
     </string-array>
 
     <string-array name="view_contact_pic_sizes">
-        <item>Petit (par défaut)</item>
-        <item>Moyen</item>
-        <item>Grand</item>
-        <item>Très grand</item>
+        <item>Μικρό (προεπιλογή)</item>
+        <item>Μεσαίο</item>
+        <item>Μεγάλο</item>
+        <item>Πολύ μεγάλο</item>
     </string-array>
 
     <string-array name="view_data_font_sizes">
-        <item>Petit (par défaut)</item>
-        <item>Moyen</item>
-        <item>Grand</item>
-        <item>Très grand</item>
+        <item>Μικρό (προεπιλογή)</item>
+        <item>Μεσαίο</item>
+        <item>Μεγάλο</item>
+        <item>Πολύ μεγάλο</item>
     </string-array>
+
 </resources>
